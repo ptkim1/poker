@@ -6,8 +6,16 @@ class Actor_Critic(object):
     Contains both actor and critic networks
     """
 
-    def __init__(self, PARAMS):
-        ## Do shit
+    def __init__(self,
+                optimizer,
+                state_dim,
+                summary_writer,
+                summary_every=100):
+
+        self.optimizer = optimizer
+        self.state_dim = state_dim
+        self.summary_writer = summary_writer
+        self.summary_every = summary_every
 
     def actor_inference(self, state):
         """
@@ -15,7 +23,7 @@ class Actor_Critic(object):
         and returns the tensor representing the 
         decision. 
         """
-        with tf.name_scope('policy'):
+        with tf.name_scope('actor'):
             # Starting with a two layer network
             hidden1 = tf.layers.dense(
                 inputs=state,
@@ -63,15 +71,24 @@ class Actor_Critic(object):
             return hidden2
 
     def actor_gradient(logits, advantages):
-        # Get actor variables using collection
-        # approxJ = tf.log(logits) * advantages
-        # tf.gradient(approxJ)
+        # Get variables for actor, for gradient calculation 
+        actor_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='actor')
+
+        # Compute gradients wrt log(logits)
+        actor_gradients = self.optimizer.compute_gradients(tf.log(logits), actor_variables)
+
+        # Apply advantages
+        for i, (grad, var) in enumerate(actor_gradients):
+            if grad is not None:
+                actor_gradients[i] = (grad * advantages, var)
+
+        return actor_gradients
 
     def critic_loss(estimate, actual):
-        critic_loss = #1/2 * sum_squared_error(estimate - actual)
+        critic_loss = tf.reduce_mean(tf.square(estimate - actual))
         return critic_loss
 
-    def actor_training(actor_grad, ):
+    def actor_training(actor_grad):
         train_op = self.optimizer.apply_gradients(actor_grad)
         return train_op
 
@@ -79,7 +96,8 @@ class Actor_Critic(object):
         train_op = self.optimizer.minimize(critic_loss)
         return train_op
 
-    def advantages(reward, discount, decision, critic):
-        advantage = reward + (discount * critic.eval())
+    def advantages(reward, discount, v_next, v_curr, critic):
+        # Need to open up a session here
+        advantage = reward + (discount * v_next) - (v_curr)
     
-    
+        return advantage
